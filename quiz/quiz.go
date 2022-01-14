@@ -16,7 +16,7 @@ type problem struct {
 }
 
 func exit(message string) {
-	fmt.Fprintf(os.Stderr, "%v", message)
+	fmt.Fprintf(os.Stderr, "%v\n", message)
 	os.Exit(1)
 }
 
@@ -51,15 +51,15 @@ func ReadAndParseCSV(filename string, shuffle bool) []problem {
 }
 
 func main() {
-	var csvFile = flag.String("csv", "problems.csv", "a csv file in the format of 'questions,answers'")
-	var timeLimit = flag.Int("limit", 30, "the time limit for the entire quiz in seconds")
+	var limit = flag.Int("limit", 30, "the time limit for the entire quiz in seconds")
 	var shuffle = flag.Bool("shuffle", false, "shuffles the problemset before starting the quiz")
+	var csvFile = flag.String("csv", "problems.csv", "a csv file in the format of 'questions,answers'")
 
 	flag.Parse()
 
 	correct := 0
 	problems := ReadAndParseCSV(*csvFile, *shuffle)
-	timer := time.NewTimer(time.Second * time.Duration(*timeLimit))
+	timer := time.NewTimer(time.Second * time.Duration(*limit))
 
 ProblemLoop:
 	for i, p := range problems {
