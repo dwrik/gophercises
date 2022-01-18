@@ -1,10 +1,10 @@
 [
     {
-        "path": "programming",
+        "path": "/programming",
         "url": "https://www.reddit.com/r/learnprogramming"
     },
     {
-        "path": "faq",
+        "path": "/faq",
         "url": "https://www.reddit.com/r/learnprogramming/wiki/faq"
     }
 ]

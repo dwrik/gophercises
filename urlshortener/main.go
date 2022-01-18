@@ -12,9 +12,10 @@ import (
 )
 
 func main() {
-	yamlFilename := flag.String("yaml", "redirect.yaml", "a yaml file with url mappings")
-	jsonFilename := flag.String("json", "redirect.json", "a json file with url mappings")
+	yamlFilename := flag.String("yaml", "", "a yaml file with url mappings")
+	jsonFilename := flag.String("json", "", "a json file with url mappings")
 
+	flag.Usage = customUsage()
 	flag.Parse()
 
 	var jsonPresent bool
@@ -29,45 +30,52 @@ func main() {
 		}
 	})
 
-	var mapHandler, jsonHandler, yamlHandler http.HandlerFunc
-	var jsonPaths, yamlPaths = []byte{}, []byte{}
+	var handler http.Handler
 
-	if jsonPresent {
-		json, err := readFile(*jsonFilename)
-		if err != nil {
-			exit(fmt.Sprintf("failed to read json file: %s", *jsonFilename))
-		}
-		jsonPaths = json
-	}
-
-	if yamlPresent {
-		yaml, err := readFile(*yamlFilename)
-		if err != nil {
-			exit(fmt.Sprintf("failed to read yaml file: %s", *yamlFilename))
-		}
-		yamlPaths = yaml
-	}
-
-	pathsToUrls := map[string]string{
-		"/urlshort-godoc": "https://godoc.org/github.com/gophercises/urlshort",
-		"/yaml-godoc":     "https://godoc.org/gopkg.in/yaml.v2",
-	}
-
-	mux := defaultMux()
-	mapHandler = urlshort.MapHandler(pathsToUrls, mux)
-
-	yamlHandler, err := urlshort.YAMLHandler(yamlPaths, mapHandler)
-	if err != nil {
-		exit(fmt.Sprintf("invalid yaml file: %s", *yamlFilename))
-	}
-
-	jsonHandler, err = urlshort.JSONHandler(jsonPaths, yamlHandler)
-	if err != nil {
-		exit(fmt.Sprintf("invalid json file: %s", *jsonFilename))
+	switch {
+	case jsonPresent:
+		handler = getHandler(urlshort.JSONHandler, *jsonFilename)
+	case yamlPresent:
+		handler = getHandler(urlshort.YAMLHandler, *yamlFilename)
+	default:
+		exit("Error:\tConfiguration file with url mappings not provided.")
 	}
 
 	fmt.Println("Starting server on localhost:8080")
-	log.Fatal(http.ListenAndServe(":8080", jsonHandler))
+	log.Fatal(http.ListenAndServe(":8080", handler))
+}
+
+func customUsage() func() {
+	return func() {
+		fmt.Fprintf(os.Stderr, "Usage: urlshortener OPTION FILE\n\n")
+		flagNames := [...]string{"json", "yaml"}
+		for _, fname := range flagNames {
+			f := flag.Lookup(fname)
+			fmt.Fprintf(os.Stderr, "  -%s\t%s\n", f.Name, f.Usage)
+		}
+		fmt.Fprintln(os.Stderr, "\nIf both -json and -yaml files are\nprovided then the -json FILE is used.")
+	}
+}
+
+func getHandler(handlerFactory func([]byte, http.Handler) (http.HandlerFunc, error), filename string) http.Handler {
+	pathsToUrls := map[string]string{
+		"/yaml-godoc": "https://godoc.org/gopkg.in/yaml.v2",
+	}
+
+	mux := defaultMux()
+	mapHandler := urlshort.MapHandler(pathsToUrls, mux)
+
+	file, err := readFile(filename)
+	if err != nil {
+		exit(fmt.Sprintf("failed to read file:\t%s", filename))
+	}
+
+	handler, err := handlerFactory(file, mapHandler)
+	if err != nil {
+		exit(fmt.Sprintf("invalid file:\t%s", filename))
+	}
+
+	return handler
 }
 
 func readFile(filename string) ([]byte, error) {
